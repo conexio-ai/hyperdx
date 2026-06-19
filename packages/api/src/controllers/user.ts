@@ -93,6 +93,19 @@ export function recordOnboardingTaskCompletion(
       'Failed to record onboarding task completion',
     );
   });
+// Create a user provisioned via SSO (no local password hash/salt is set, so
+// they can only authenticate through the IdP). accessKey is auto-generated.
+export function createSsoUser({
+  email,
+  name,
+  teamId,
+}: {
+  email: string;
+  name: string;
+  teamId: ObjectId;
+}) {
+  const user = new User({ email: email.toLowerCase(), name, team: teamId });
+  return user.save();
 }
 
 export async function deleteTeamMember(
