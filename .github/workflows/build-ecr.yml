@@ -1,0 +1,66 @@
+name: Build & push HyperDX (OIDC fork) to ECR
+
+# Builds the modular prod image (docker/hyperdx target `prod` = API + App, BYO
+# storage) for linux/arm64 and pushes to our di-nna-prod ECR. This is the
+# conexio-ai fork of HyperDX 2.40.0 + Entra OIDC SSO; deployed CFN-only to the
+# ClickStack `observability` cluster.
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - 'packages/**'
+      - 'docker/hyperdx/**'
+      - 'package.json'
+      - 'yarn.lock'
+      - '.yarn/**'
+      - '.yarnrc.yml'
+      - '.github/workflows/build-ecr.yml'
+
+concurrency:
+  group: build-ecr-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  id-token: write   # OIDC federation to AWS
+  contents: read
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REPO: 812126089462.dkr.ecr.us-east-1.amazonaws.com/hyperdx
+
+jobs:
+  build:
+    name: Build arm64 prod image and push to ECR
+    runs-on: ubuntu-24.04-arm   # native arm64 (our ECS is ARM64) — no QEMU
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::812126089462:role/github-actions-deploy
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push (docker/hyperdx target prod, linux/arm64)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./docker/hyperdx/Dockerfile
+          target: prod
+          platforms: linux/arm64
+          push: true
+          build-args: |
+            CODE_VERSION=2.40.0-oidc-${{ github.sha }}
+          tags: |
+            ${{ env.ECR_REPO }}:${{ github.sha }}
+            ${{ env.ECR_REPO }}:latest
+          cache-from: type=gha,scope=hyperdx-prod-arm64
+          cache-to: type=gha,mode=max,scope=hyperdx-prod-arm64
