@@ -93,6 +93,8 @@ export function recordOnboardingTaskCompletion(
       'Failed to record onboarding task completion',
     );
   });
+}
+
 // Create a user provisioned via SSO (no local password hash/salt is set, so
 // they can only authenticate through the IdP). accessKey is auto-generated.
 export function createSsoUser({
