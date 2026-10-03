@@ -3,7 +3,8 @@ name: Build & push HyperDX (OIDC fork) to ECR
 # Builds the modular prod image (docker/hyperdx target `prod` = API + App, BYO
 # storage) for linux/arm64 and pushes to our di-nna-prod ECR. This is the
 # conexio-ai fork of HyperDX 2.40.0 + Entra OIDC SSO; deployed CFN-only to the
-# ClickStack `observability` cluster.
+# ClickStack `observability` cluster. The prod stage COPYs from the api/app/
+# hyperdx build-contexts (see docker/hyperdx/build.sh + upstream release.yml).
 on:
   workflow_dispatch:
   push:
@@ -57,6 +58,10 @@ jobs:
           target: prod
           platforms: linux/arm64
           push: true
+          build-contexts: |
+            hyperdx=./docker/hyperdx
+            api=./packages/api
+            app=./packages/app
           build-args: |
             CODE_VERSION=2.40.0-oidc-${{ github.sha }}
           tags: |
